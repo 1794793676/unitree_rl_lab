@@ -16,3 +16,8 @@
 *.pt filter=lfs diff=lfs merge=lfs -text
 *.jit filter=lfs diff=lfs merge=lfs -text
 doc/sim2sim.gif filter=lfs diff=lfs merge=lfs -text
+
+# Keep exported bundles byte-identical across Windows/WSL for provenance hashes.
+deploy/robots/g1_29dof/config/policy/velocity/windows_trained/**/*.yaml text eol=lf
+deploy/robots/g1_29dof/config/policy/velocity/windows_trained/*.json text eol=lf
+deploy/robots/g1_29dof/config/policy/velocity/windows_trained/**/*.onnx -text

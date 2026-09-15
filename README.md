@@ -87,6 +87,8 @@ Currently supports Unitree **Go2**, **H1** and **G1-29dof** robots.
 
 ## Deploy
 
+For Windows training and GitHub-synced WSL inference, see [Windows → WSL deployment](docs/windows-wsl-deploy.md).
+
 After the model training is completed, we need to perform sim2sim on the trained strategy in Mujoco to test the performance of the model.
 Then deploy sim2real.
 

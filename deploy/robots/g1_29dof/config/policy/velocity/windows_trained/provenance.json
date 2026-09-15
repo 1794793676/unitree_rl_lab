@@ -1,0 +1,27 @@
+{
+  "task": "Unitree-G1-29dof-Velocity",
+  "training_run": "2026-09-11_10-55-35",
+  "checkpoint": "model_100.pt",
+  "checkpoint_sha256": "39c2777385148056dadf81296a4ce6c47bbb74d3b3384fd395c7dbf26bf4f58a",
+  "iteration": 100,
+  "rsl_rl_version": "5.0.1",
+  "torch_version": "2.7.0+cu128",
+  "input_name": "obs",
+  "input_shape": [
+    1,
+    480
+  ],
+  "output_name": "actions",
+  "output_shape": [
+    1,
+    29
+  ],
+  "onnx_sha256": "0b5bb40e9bb5034029726720f5b53d440a7aeb0f3fc34b1f22ad3c46acdce5bc",
+  "deploy_yaml_sha256": "6b1c538bba0e1f97240d29c83242d7deec965d8a43ae8bad44ca49dcb787c9ad",
+  "validation": {
+    "backend": "onnx.reference.ReferenceEvaluator",
+    "samples": 9,
+    "max_absolute_error": 2.384185791015625e-07,
+    "mujoco_tested": false
+  }
+}
