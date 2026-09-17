@@ -67,6 +67,31 @@ class ExportDeployTests(unittest.TestCase):
             exporter.export_checkpoint(self.checkpoint, self.output)
         self.assertEqual(marker.read_text(), "existing bundle")
 
+    def test_export_clips_actions_before_deploy_processing(self):
+        (self.run / "params/agent.yaml").write_text(yaml.safe_dump(
+            {"actor": self.actor_cfg, "clip_actions": 5.0}))
+        # Force both saturation directions and an unchanged interior value.
+        with torch.no_grad():
+            self.actor.mlp[-1].weight.zero_()
+            self.actor.mlp[-1].bias.copy_(torch.tensor([-8.0, 2.0, 9.0] + [0.0] * 26))
+        torch.save({"actor_state_dict": self.actor.state_dict(), "iter": 100}, self.checkpoint)
+        manifest = exporter.export_checkpoint(self.checkpoint, self.output)
+        actual = ReferenceEvaluator(str(self.output / "exported/policy.onnx")).run(
+            None, {"obs": np.zeros((1, 480), dtype=np.float32)})[0]
+        np.testing.assert_allclose(actual[0], [-5.0, 2.0, 5.0] + [0.0] * 26)
+        self.assertEqual(manifest["clip_actions"], 5.0)
+        self.assertEqual((self.output / "params/deploy.yaml").read_text(),
+                         (self.run / "params/deploy.yaml").read_text())
+
+    def test_invalid_action_clip_does_not_publish(self):
+        for limit in [0.0, -1.0, float("inf"), float("nan"), True, "5"]:
+            with self.subTest(limit=limit):
+                (self.run / "params/agent.yaml").write_text(yaml.safe_dump(
+                    {"actor": self.actor_cfg, "clip_actions": limit}))
+                with self.assertRaisesRegex(ValueError, "clip_actions must be"):
+                    exporter.export_checkpoint(self.checkpoint, self.output)
+                self.assertFalse(self.output.exists())
+
     def test_legacy_checkpoint_has_actionable_error(self):
         torch.save({"model_state_dict": {}}, self.checkpoint)
         with self.assertRaisesRegex(ValueError, "actor_state_dict"):
