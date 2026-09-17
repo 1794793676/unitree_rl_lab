@@ -50,6 +50,9 @@ int main(int argc, char** argv)
 
     std::cout << "Press [L2 + Up] to enter FixStand mode.\n";
     std::cout << "And then press [R1 + X] to start controlling the robot.\n";
+    std::cout << "Keyboard (this terminal): [1] FixStand, wait 3s, [2] Velocity, [0] Passive.\n";
+    if (param::config["FSM"]["Velocity"]["keyboard_control"].as<bool>(false))
+        std::cout << "[W/S] forward/back, [A/D] left/right, [Q/E] turn left/right. Input timeout stops motion.\n";
 
     while (true)
     {
@@ -58,4 +61,3 @@ int main(int argc, char** argv)
     
     return 0;
 }
-

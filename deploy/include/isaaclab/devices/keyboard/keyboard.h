@@ -6,6 +6,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <thread>
+#include <atomic>
+#include <mutex>
 
 
 /**
@@ -35,15 +37,18 @@ public:
   ~Keyboard()
   {
     _thread_running = false;
+    _running = false;
+    if (_readThread.joinable()) _readThread.join();
     _pauseKey();
   }
 
   void update()
   {
-    if(_key != _last_key)
+    const auto current_key = key();
+    if(current_key != _last_key)
     {
-      on_pressed = _key != "";
-      on_released = _key == "";
+      on_pressed = current_key != "";
+      on_released = current_key == "";
     }
     else
     {
@@ -51,7 +56,7 @@ public:
       on_released = false;
     }
     
-    _last_key = _key;
+    _last_key = current_key;
   }
 
   /**
@@ -59,7 +64,11 @@ public:
    * 
    * @return std::string 
    */
-  std::string key() const { return _key; };
+  std::string key() const
+  {
+    std::lock_guard<std::mutex> lock(_key_mutex);
+    return _key;
+  };
 
   /**
    * @brief Get the String object from keyboard 
@@ -92,47 +101,64 @@ public:
 
   private:
   bool _thread_running = false;
-  bool _running = false;
+  std::atomic<bool> _running{false};
   std::thread _readThread;
+  mutable std::mutex _key_mutex;
 
   void _read()
   {
     if(_running)
     {
+      std::string next_key;
       FD_ZERO(&_fd_set);
       FD_SET( fileno(stdin), &_fd_set);
 
       _tv.tv_sec = 0;
       _tv.tv_usec = 80000;
 
-      if(select(fileno(stdin)+1, &_fd_set, NULL, NULL, &_tv))
+      if(select(fileno(stdin)+1, &_fd_set, NULL, NULL, &_tv) > 0)
       {
         // Read the key value into _c
         int res = read( fileno(stdin), &_c, 1 );
+        if (res != 1) {
+          std::lock_guard<std::mutex> lock(_key_mutex);
+          _key.clear();
+          _running = false;
+          return;
+        }
 
         // Parser the key value
         if(_c != '\033') {
           // This is a normal key
-          _key = _c;
+          next_key = _c;
         }else{
           // This is a special key
-          int m = read(fileno(stdin), &_c, 1);
-          if(_c == '[')
           {
-            m = read(fileno(stdin), &_c, 1);
+            std::lock_guard<std::mutex> lock(_key_mutex);
+            _key.clear();
+          }
+          auto read_next = [this]() {
+            FD_ZERO(&_fd_set);
+            FD_SET(fileno(stdin), &_fd_set);
+            _tv = {0, 80000};
+            return select(fileno(stdin) + 1, &_fd_set, NULL, NULL, &_tv) > 0
+                && read(fileno(stdin), &_c, 1) == 1;
+          };
+          if(read_next() && _c == '[' && read_next())
+          {
             switch (_c)
             {
-            case 'A': _key = "up";    break;
-            case 'B': _key = "down";  break;
-            case 'C': _key = "right"; break;
-            case 'D': _key = "left";  break;
-            default:  _key = "";      break;
+            case 'A': next_key = "up";    break;
+            case 'B': next_key = "down";  break;
+            case 'C': next_key = "right"; break;
+            case 'D': next_key = "left";  break;
+            default:  next_key = "";      break;
             }
           }
         }
-      }else{
-        _key = "";
       }
+      std::lock_guard<std::mutex> lock(_key_mutex);
+      _key = next_key;
       // std::cout << "key: "<< key() << std::endl;
     }
   }

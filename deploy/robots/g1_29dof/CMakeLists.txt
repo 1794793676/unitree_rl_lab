@@ -29,3 +29,11 @@ add_library(${PROJECT_NAME}_lib ${ADD_SRC_LIST})
 link_libraries(${PROJECT_NAME}_lib)
 
 add_executable(g1_ctrl main.cpp)
+
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(test_keyboard_control tests/test_keyboard_control.cpp)
+  target_link_libraries(test_keyboard_control util)
+  add_test(NAME keyboard_control COMMAND test_keyboard_control)
+  set_tests_properties(keyboard_control PROPERTIES WORKING_DIRECTORY ${PROJECT_SOURCE_DIR} TIMEOUT 10)
+endif()
