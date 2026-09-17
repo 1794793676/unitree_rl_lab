@@ -44,6 +44,20 @@ public:
             }
         }
 
+        const auto keyboard_transitions = param::config["FSM"][state_string]["keyboard_transitions"];
+        if (keyboard_transitions)
+        {
+            for (const auto& transition : keyboard_transitions)
+            {
+                const auto target = transition.first.as<std::string>();
+                const auto key = transition.second.as<std::string>();
+                registered_checks.emplace_back(
+                    [key]() { return keyboard && keyboard->on_pressed && keyboard->key() == key; },
+                    FSMStringMap.right.at(target)
+                );
+            }
+        }
+
         // register for all states
         registered_checks.emplace_back(
             std::make_pair(

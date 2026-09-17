@@ -16,7 +16,9 @@ FSM:
       type: Mimic
 
   Passive:
-    transitions: 
+    keyboard_transitions:
+      FixStand: "1"
+    transitions:
       FixStand: LT + up.on_pressed
     mode: [
       1,1,1,1,1,1,
@@ -33,7 +35,10 @@ FSM:
       3,3,3,3,3,3,3,  
     ]
   FixStand:
-    transitions: 
+    keyboard_transitions:
+      Passive: "0"
+      Velocity: "2"
+    transitions:
       Passive: LT + B.on_pressed
       Velocity: RB + X.on_pressed
     kp: [
@@ -61,7 +66,10 @@ FSM:
       ]
     ]
   Velocity:
-    transitions: 
+    keyboard_transitions:
+      Passive: "0"
+    keyboard_control: true
+    transitions:
       Passive: LT + B.on_pressed
       Mimic_Dance_102: LT(2s) + down.on_pressed
       Mimic_Gangnam_Style: LT(2s) + left.on_pressed
@@ -87,4 +95,3 @@ FSM:
     policy_dir: config/policy/mimic/gangnam_style/
     time_start: 5.2
     time_end: 25.5
-

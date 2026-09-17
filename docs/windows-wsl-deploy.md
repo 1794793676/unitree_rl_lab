@@ -113,15 +113,17 @@ robot_scene: "scene_29dof.xml"
 domain_id: 0
 interface: "lo"
 enable_elastic_band: 1
-use_joystick: 1
+use_joystick: 0
 joystick_type: "xbox"
 joystick_device: "/dev/input/js0"
 ```
 
-The current controller uses a joystick for state changes. The earlier proposed
-keyboard state-switching feature is not implemented by this repository-sync
-change. `use_joystick: 0` alone does not let you start the policy without a gamepad.
-With Windows USB passthrough, check that WSL exposes a readable `/dev/input/js0`.
+The G1 controller supports keyboard state changes in its terminal. No gamepad is
+needed with `use_joystick: 0`. `FSM.Velocity.keyboard_control: true` in the
+controller's `config/config.yaml` selects keyboard velocity commands at runtime,
+preserving the model bundle and observation ordering. Set it to `false` and use
+`use_joystick: 1` to drive with a gamepad instead. With Windows USB passthrough,
+check that WSL exposes a readable `/dev/input/js0`.
 
 ## WSL: subsequent updates and inference
 
@@ -153,9 +155,39 @@ cd ~/projects/unitree_rl_lab/deploy/robots/g1_29dof/build
 ```
 
 Check the `Policy directory:` log ends in `velocity/windows_trained` and wait for
-`Connected to robot.` Then use LT + Up to stand; wait for the transition to finish;
-press 8 in the MuJoCo window until the feet touch the ground; use RB + X to start
-the policy; press 9 in MuJoCo to release the elastic band.
+`Connected to robot.` In the controller terminal press `1` to enter FixStand and
+wait 3 seconds for the standing transition. Focus the MuJoCo window and press `8`
+until the feet touch the ground. Return to the controller terminal and press `2`
+to enter Velocity; press `9` in MuJoCo to release the elastic band.
+
+Keyboard commands in the **controller terminal** (lowercase letters):
+
+| Key | Action |
+| --- | --- |
+| `1` | Passive → FixStand |
+| `2` | FixStand → Velocity (not directly from Passive) |
+| `0` | FixStand or Velocity → Passive |
+| `w` / `s` | Forward / backward |
+| `a` / `d` | Strafe left / right |
+| `q` / `e` | Turn left / right |
+
+Movement uses unit commands clamped to the policy's configured velocity ranges.
+For the bundled policy these are x: `[-0.5, 1.0]` m/s, y: `[-0.3, 0.3]` m/s,
+yaw: `[-0.2, 0.2]` rad/s. Input times out after approximately 80 ms without a
+terminal key event and the commanded velocity returns to zero (the robot may
+take time to stop). Holding a key relies on OS key repeat and can pause during
+its initial repeat delay; simultaneous movement keys are not supported.
+Unmapped keys also command zero velocity. Existing gamepad state transitions
+remain available: LT + Up, RB + X and LT + B.
+
+To run the keyboard regression check, which uses a pseudo-terminal and needs no
+gamepad or simulator:
+
+```bash
+cmake -S deploy/robots/g1_29dof -B deploy/robots/g1_29dof/build -DBUILD_TESTING=ON
+cmake --build deploy/robots/g1_29dof/build -j4
+ctest --test-dir deploy/robots/g1_29dof/build --output-on-failure
+```
 
 ## Export verification
 
