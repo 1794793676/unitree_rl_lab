@@ -25,6 +25,18 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "deploy/robots/g1_29dof/config/policy/velocity/windows_trained"
 
 
+class ClippedOnnxActor(torch.nn.Module):
+    """Match RslRlVecEnvWrapper clipping before action scaling and last_action."""
+
+    def __init__(self, actor, limit):
+        super().__init__()
+        self.actor = actor
+        self.limit = limit
+
+    def forward(self, obs):
+        return torch.clamp(self.actor(obs), -self.limit, self.limit)
+
+
 def sha256(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -46,8 +58,10 @@ def export_checkpoint(checkpoint, output=DEFAULT_OUTPUT):
     groups = agent.get("obs_groups", {})
     if groups and groups.get("actor") != ["policy"]:
         raise ValueError("Only the single policy observation group is supported.")
-    if agent.get("clip_actions") is not None:
-        raise ValueError("Action clipping requires a corresponding deploy adaptation before export.")
+    clip_actions = agent.get("clip_actions")
+    if clip_actions is not None:
+        if type(clip_actions) not in (int, float) or not (0.0 < clip_actions < float("inf")):
+            raise ValueError("clip_actions must be a finite positive number or null.")
 
     # Restrict this utility to the existing G1 velocity deploy contract.
     dimensions = dict(base_ang_vel=3, projected_gravity=3, velocity_commands=3,
@@ -72,6 +86,9 @@ def export_checkpoint(checkpoint, output=DEFAULT_OUTPUT):
     actor.load_state_dict(state, strict=True)
     actor.eval()
     onnx_actor = actor.as_onnx(verbose=False).cpu().eval()
+    dummy_inputs = onnx_actor.get_dummy_inputs()
+    if clip_actions is not None:
+        onnx_actor = ClippedOnnxActor(onnx_actor, clip_actions).eval()
 
     # Validate the entire bundle before touching an existing deployment.
     with tempfile.TemporaryDirectory(prefix="unitree-export-") as staging:
@@ -79,7 +96,7 @@ def export_checkpoint(checkpoint, output=DEFAULT_OUTPUT):
         deploy_path = Path(staging) / "deploy.yaml"
         deploy_path.write_text((params / "deploy.yaml").read_text(encoding="utf-8"),
                                encoding="utf-8", newline="\n")
-        torch.onnx.export(onnx_actor, onnx_actor.get_dummy_inputs(), str(model_path),
+        torch.onnx.export(onnx_actor, dummy_inputs, str(model_path),
                           input_names=["obs"], output_names=["actions"],
                           opset_version=18, dynamo=False)
         model = onnx.load(str(model_path))
@@ -91,6 +108,8 @@ def export_checkpoint(checkpoint, output=DEFAULT_OUTPUT):
         with torch.inference_mode():
             for obs in samples:
                 expected = actor(TensorDict({"policy": obs}, [1])).numpy()
+                if clip_actions is not None:
+                    expected = np.clip(expected, -clip_actions, clip_actions)
                 actual = evaluator.run(None, {"obs": obs.numpy()})[0]
                 if not np.isfinite(actual).all() or not np.isfinite(expected).all():
                     raise ValueError("Non-finite policy outputs.")
@@ -104,6 +123,7 @@ def export_checkpoint(checkpoint, output=DEFAULT_OUTPUT):
             "iteration": saved.get("iter"),
             "rsl_rl_version": version,
             "torch_version": torch.__version__,
+            "clip_actions": clip_actions,
             "input_name": "obs", "input_shape": [1, input_dim],
             "output_name": "actions", "output_shape": [1, 29],
             "onnx_sha256": sha256(model_path),

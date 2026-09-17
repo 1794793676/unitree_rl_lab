@@ -1,11 +1,12 @@
 {
   "task": "Unitree-G1-29dof-Velocity",
-  "training_run": "2026-09-11_10-55-35",
-  "checkpoint": "model_100.pt",
-  "checkpoint_sha256": "39c2777385148056dadf81296a4ce6c47bbb74d3b3384fd395c7dbf26bf4f58a",
-  "iteration": 100,
+  "training_run": "2026-09-16_09-43-25_resume11700_actionclip5",
+  "checkpoint": "model_19600.pt",
+  "checkpoint_sha256": "8523501414499ad5539cca3ab8b99ee8f95ca1693038df19099159d30c460025",
+  "iteration": 19600,
   "rsl_rl_version": "5.0.1",
   "torch_version": "2.7.0+cu128",
+  "clip_actions": 5.0,
   "input_name": "obs",
   "input_shape": [
     1,
@@ -16,12 +17,12 @@
     1,
     29
   ],
-  "onnx_sha256": "0b5bb40e9bb5034029726720f5b53d440a7aeb0f3fc34b1f22ad3c46acdce5bc",
+  "onnx_sha256": "64c94f36df3e8613882fdc501ed77130c2defdd4ad8a0772558d0b2d23d1c535",
   "deploy_yaml_sha256": "6b1c538bba0e1f97240d29c83242d7deec965d8a43ae8bad44ca49dcb787c9ad",
   "validation": {
     "backend": "onnx.reference.ReferenceEvaluator",
     "samples": 9,
-    "max_absolute_error": 2.384185791015625e-07,
+    "max_absolute_error": 3.814697265625e-06,
     "mujoco_tested": false
   }
 }
